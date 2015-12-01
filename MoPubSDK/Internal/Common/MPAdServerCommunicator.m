@@ -68,8 +68,13 @@ const NSTimeInterval kRequestTimeoutInterval = 10.0;
     self.adRequestLatencyEvent = [[MPLogEvent alloc] initWithEventCategory:MPLogEventCategoryRequests eventName:MPLogEventNameAdRequest];
     self.adRequestLatencyEvent.requestURI = URL.absoluteString;
 
-    self.connection = [NSURLConnection connectionWithRequest:[self adRequestForURL:URL]
-                                                    delegate:self];
+    self.connection = [[NSURLConnection alloc] initWithRequest:[self adRequestForURL:URL] delegate:self startImmediately:NO];
+
+    NSRunLoop* runLoop = [NSRunLoop currentRunLoop];
+    [self.connection scheduleInRunLoop:runLoop forMode:NSRunLoopCommonModes];
+    [self.connection start];
+    [runLoop run];
+
     self.loading = YES;
 }
 
@@ -95,7 +100,9 @@ const NSTimeInterval kRequestTimeoutInterval = 10.0;
 
             [connection cancel];
             self.loading = NO;
-            [self.delegate communicatorDidFailWithError:[self errorForStatusCode:statusCode]];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate communicatorDidFailWithError:[self errorForStatusCode:statusCode]];
+            });
             return;
         }
     }
@@ -115,7 +122,9 @@ const NSTimeInterval kRequestTimeoutInterval = 10.0;
     self.adRequestLatencyEvent = nil;
 
     self.loading = NO;
-    [self.delegate communicatorDidFailWithError:error];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.delegate communicatorDidFailWithError:error];
+    });
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
@@ -138,7 +147,10 @@ const NSTimeInterval kRequestTimeoutInterval = 10.0;
     }
 
     self.loading = NO;
-    [self.delegate communicatorDidReceiveAdConfiguration:configuration];
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.delegate communicatorDidReceiveAdConfiguration:configuration];
+    });
 }
 
 #pragma mark - Internal
